@@ -78,4 +78,4 @@ clean:
 	
 .PHONY: distclean
 distclean: clean
-#	rm -f limine.h
+	rm -f limine.h

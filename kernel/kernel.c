@@ -1,20 +1,17 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 
-#include "limine.h"
+#include <idt.h>
 
-static volatile struct limine_terminal_request term_req = {
-    .id = LIMINE_TERMINAL_REQUEST,
-    .revision = 0
-};
+#include <drivers/terminal.h>
 
 void _start() {
-    if (!term_req.response || term_req.response->terminal_count < 1)
-        return;
-
-    struct limine_terminal* term = term_req.response->terminals[0];
-    term_req.response->write(term, "Argo OS", 11);
+    terminal_init();
+    terminal_write("Argo OS\n", 8);
+    
+    idt_init();
     
     for (;;)
-        __asm__("hlt");
+        __asm__ ("hlt");
 }
