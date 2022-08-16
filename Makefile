@@ -3,7 +3,7 @@ all: argo.is
 	
 .PHONY: run
 run: ovmf-x64 argo.iso
-	qemu-system-x86_64 -enable-kvm -M q35 -m 2G -bios ovmf-x64/OVMF.fd -cdrom argo.iso -boot d
+	qemu-system-x86_64 --enable-kvm -M q35 -m 2G -bios ovmf-x64/OVMF.fd -cdrom argo.iso -boot d
 
 ovmf-x64:
 	mkdir -p ovmf-x64
