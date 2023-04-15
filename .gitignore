@@ -1,5 +1,4 @@
 iso_root
-limine
-*.elf
-*.o
+/limine
+/ovmf
 *.iso

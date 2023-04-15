@@ -1,54 +1,66 @@
+override MAKEFLAGS += -rR
 override KERNEL := argo.elf
 
 define DEFAULT_VAR =
-	ifeq ($(origin $1), default)
-		override $(1) := $(2)
-	endif
-	ifeq ($(origin $1), undefined)
-		override $(1) := $(2)
-	endif
+    ifeq ($(origin $1), default)
+        override $(1) := $(2)
+    endif
+    ifeq ($(origin $1), undefined)
+        override $(1) := $(2)
+    endif
 endef
 
 $(eval $(call DEFAULT_VAR, CC, cc))
 $(eval $(call DEFAULT_VAR, LD, ld))
+$(eval $(call DEFAULT_VAR, CFLAGS, -g -O2 -pipe))
+$(eval $(call DEFAULT_VAR, CPPFLAGS, ))
+$(eval $(call DEFAULT_VAR, NASMFLAGS, -F dwarf -g))
+$(eval $(call DEFAULT_VAR, LDFLAGS, ))
 
-CFLAGS ?= -O2 -g -Wall -Wextra -Wpedantic -pipe
-NASMFLAGS ?= -F dwarf -g
-LDFLAGS ?=
-PPFLAGS ?=
+override CFLAGS += \
+    -Wall \
+    -Wextra \
+    -std=c17 \
+    -ffreestanding \
+    -fno-stack-protector \
+    -fno-stack-check \
+    -fno-lto \
+    -fno-PIE \
+    -fno-PIC \
+    -m64 \
+    -march=x86-64 \
+    -mabi=sysv \
+    -mno-80387 \
+    -mno-mmx \
+    -mno-sse \
+    -mno-sse2 \
+    -mno-red-zone \
+    -mcmodel=kernel
 
-override CFLAGS +=			\
-	-I. 					\
-	-std=c17 				\
-	-ffreestanding 			\
-	-fno-stack-protector 	\
-	-fno-stack-check		\
-	-fno-pie				\
-	-fno-pic				\
-	-m64					\
-	-march=x86-64			\
-	-mabi=sysv				\
-	-mno-80387				\
-	-mno-mmx				\
-	-mno-sse				\
-	-mno-sse2				\
-	-mno-red-zone			\
-	-mcmodel=kernel			\
-	-MMD
+override CPPFLAGS := \
+    -I. \
+    $(CPPFLAGS) \
+    -MMD \
+    -MP
 
-override LDFLAGS +=				\
-	-nostdlib					\
-	-static						\
-	-Wl,--build-id=none			\
-	-Wl,-z,max-page-size=0x1000 \
-	-Wl,-T,linker.ld
+override LDFLAGS += \
+    -nostdlib \
+    -static \
+    -m elf_x86_64 \
+    -z max-page-size=0x1000 \
+    -T linker.ld
+
+ifeq ($(shell $(LD) --help 2>&1 | grep 'no-pie' >/dev/null 2>&1; echo $$?),0)
+    override LDFLAGS += -no-pie
+endif
 
 override NASMFLAGS += \
-	-f elf64
+    -Wall \
+    -f elf64
 
-override CFILES := $(shell find ./ -type f -name '*.c')
-override ASFILES := $(shell find ./ -type f -name '*.S')
-override NASMFILES = $(shell find ./ -type f -name '*.asm')
+override CFILES := $(shell find -L . -type f -name '*.c')
+override ASFILES := $(shell find -L . -type f -name '*.S')
+override NASMFILES := $(shell find -L . -type f -name '*.asm')
 override OBJ := $(CFILES:.c=.o) $(ASFILES:.S=.o) $(NASMFILES:.asm=.o)
 override HEADER_DEPS := $(CFILES:.c=.d) $(ASFILES:.S=.d)
 
@@ -56,18 +68,18 @@ override HEADER_DEPS := $(CFILES:.c=.d) $(ASFILES:.S=.d)
 all: $(KERNEL)
 
 limine.h:
-	curl https://raw.githubusercontent.com/limine-bootloader/limine/trunk/limine.h -o $@
+	curl -Lo $@ https://github.com/limine-bootloader/limine/raw/trunk/limine.h
 
 $(KERNEL): $(OBJ)
-	$(CC) $(OBJ) $(LDFLAGS) -o $@
+	$(LD) $(OBJ) $(LDFLAGS) -o $@
 
 -include $(HEADER_DEPS)
 
 %.o: %.c limine.h
-	$(CC) $(PPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-%.o: %.S
-	$(CC) $(PPFLAGS) $(CFLAGS) -c $< -o $@
+%.o: %.S limine.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 %.o: %.asm
 	nasm $(NASMFLAGS) $< -o $@
@@ -75,7 +87,7 @@ $(KERNEL): $(OBJ)
 .PHONY: clean
 clean:
 	rm -rf $(KERNEL) $(OBJ) $(HEADER_DEPS)
-	
+
 .PHONY: distclean
 distclean: clean
 	rm -f limine.h
