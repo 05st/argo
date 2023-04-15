@@ -7,6 +7,8 @@
 
 #include "drivers/terminal.h"
 
+#include "libc/string.h"
+
 void _start() {
     terminal_init();
     terminal_write("Argo OS\n", 9);
@@ -14,7 +16,14 @@ void _start() {
     idt_init();
     pmm_init();
     
-    __asm__ ("cli");
-    for (;;)
-        __asm__ ("hlt");
+    void* addr = pmm_alloc_block();
+    
+    char* buf = (char*)addr;
+    itoa((size_t)addr, buf, 10);
+
+    terminal_write(buf, 16);
+    
+    pmm_free_block(addr);
+    
+    __asm__ ("cli; hlt");
 }
